@@ -10,53 +10,33 @@ MAX_STRAGE_SIZE    :: 70_000_000
 UPDATE_STRAGE_SIZE :: 30_000_000
 MAX_NODE_COUNT :: 100_000
 
-
-fs_node_id :: u32;
-
 fs_node :: struct
 {
-  Parent : fs_node_id,
-  Childs : map[string]fs_node_id,
+  Parent : ^fs_node,
+  Childs : map[string]^fs_node,
   Name   : string,
   IsFile : bool,
   Size   : int,
 }
 
-fs :: struct
+CreateNode :: proc(Name : string) -> (Node :^fs_node)
 {
-  FSNodes : [MAX_NODE_COUNT]fs_node,
-  NodeCount :u32,
-}
-
-CreateNode :: proc(using FileSystem : ^fs, Name : string) -> (Node :^fs_node, NodeID : fs_node_id)
-{
-  assert(NodeCount < len(FSNodes));
-  NodeID = NodeCount; NodeCount += 1;
-  Node = &FSNodes[NodeID];
-  Node.Childs = make(map[string]fs_node_id);
+  Node = new(fs_node);
+  Node.Childs = make(map[string]^fs_node);
   Node.Name = Name;
   return;
 }
 
-GetNodeByID :: proc(using FileSystem : ^fs, ID : fs_node_id) -> (Node :^fs_node)
+ComputeDirSize :: proc(Node : ^fs_node) -> (Answer :int)
 {
-  assert(ID < len(FSNodes));
-  Node = &FSNodes[ID];
-  return;
-}
-
-ComputeDirSize :: proc(using FileSystem : ^fs, NodeID : fs_node_id) -> (Answer :int)
-{
-  Node := GetNodeByID(FileSystem, NodeID);
   assert(Node.IsFile == false);
   
   for ChildName in Node.Childs
   {
-    ChildID := Node.Childs[ChildName];
-    Child := GetNodeByID(FileSystem, ChildID);
+    Child := Node.Childs[ChildName];
     if !Child.IsFile 
     {
-      Answer += ComputeDirSize(FileSystem, ChildID);
+      Answer += ComputeDirSize(Child);
     }
     
     Node.Size += Child.Size
@@ -69,21 +49,17 @@ ComputeDirSize :: proc(using FileSystem : ^fs, NodeID : fs_node_id) -> (Answer :
   return;
 }
 
-FindDirSizeToDelete :: proc(using FileSystem : ^fs, NodeID : fs_node_id, FreeSpace :int) -> (Answer : int)
+FindDirSizeToDelete :: proc(Node : ^fs_node, FreeSpace :int) -> (Answer : int)
 {
-  Node := GetNodeByID(FileSystem, NodeID);
   assert(Node.IsFile == false);
   if FreeSpace + Node.Size >= UPDATE_STRAGE_SIZE 
   {
     Answer = Node.Size;
     for ChildName in Node.Childs
     {
-      ChildID := Node.Childs[ChildName];
-      Child := GetNodeByID(FileSystem, ChildID);
-      
-      if !Child.IsFile 
+      if Child := Node.Childs[ChildName]; !Child.IsFile 
       {
-        TestSize := FindDirSizeToDelete(FileSystem, ChildID, FreeSpace);
+        TestSize := FindDirSizeToDelete(Child, FreeSpace);
         if TestSize != 0 do Answer = min(Answer, TestSize)
       }
     }
@@ -98,12 +74,8 @@ main :: proc()
   if !ok do panic("couldn't open file");
   CommandResults := strings.split(cast(string)FileContent, "$ ")[1:];
   
-  FileSystem := new(fs);
-  
-  CurrentDir :string;
-  Root, RootID := CreateNode(FileSystem, "/");
+  Root := CreateNode("/");
   CurrNode :^fs_node;
-  CurrNodeID :fs_node_id;
   
   for Result in CommandResults
   {
@@ -118,18 +90,17 @@ main :: proc()
         {
           case "/" : 
           {
-            CurrNodeID = RootID;
+            CurrNode = Root;
           }
           case "..": 
           {
-            CurrNodeID = CurrNode.Parent;
+            CurrNode = CurrNode.Parent;
           }
           case: 
           {
-            CurrNodeID = CurrNode.Childs[DestDir];
+            CurrNode = CurrNode.Childs[DestDir];
           }
         }
-        CurrNode = GetNodeByID(FileSystem, CurrNodeID);
       }
       case "ls":
       {
@@ -137,9 +108,9 @@ main :: proc()
         for EntryLine in Output
         {
           Entry := strings.split(EntryLine, " ");
-          Node, ID := CreateNode(FileSystem, Entry[1]);
-          CurrNode.Childs[Node.Name] = ID;
-          Node.Parent = CurrNodeID;
+          Node := CreateNode(Entry[1]);
+          CurrNode.Childs[Node.Name] = Node;
+          Node.Parent = CurrNode;
           if Entry[0] != "dir"
           {
             Node.IsFile = true;
@@ -150,6 +121,6 @@ main :: proc()
     }
   }
   
-  fmt.println("part 1:", ComputeDirSize(FileSystem, RootID));
-  fmt.println("part 2:", FindDirSizeToDelete(FileSystem, RootID, MAX_STRAGE_SIZE - Root.Size));
+  fmt.println("part 1:", ComputeDirSize(Root));
+  fmt.println("part 2:", FindDirSizeToDelete(Root, MAX_STRAGE_SIZE - Root.Size));
 }

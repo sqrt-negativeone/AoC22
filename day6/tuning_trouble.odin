@@ -1,9 +1,6 @@
 package advent_of_code
 
 import "core:os"
-import "core:io"
-import "core:strconv"
-import "core:strings"
 import "core:fmt"
 
 
