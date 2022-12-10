@@ -78,44 +78,17 @@ main :: proc()
     if Line == "" do continue;
     Moves := strings.split(Line, " ");
     Dir, Steps, _ := Moves[0], strconv.parse_int(Moves[1]);
-    switch Dir[0]
+    for ;Steps != 0; Steps -= 1
     {
-      case 'U': 
+      switch Dir[0]
       {
-        for ;Steps != 0; Steps -= 1
-        {
-          Rope[0].y += 1;
-          UpdateRope(Rope[:]);
-          Visited[Rope[KNOT_COUNT]] = true;
-        }
+        case 'U': Rope[0].y += 1;
+        case 'D': Rope[0].y -= 1;
+        case 'L': Rope[0].x -= 1;
+        case 'R': Rope[0].x += 1;
       }
-      case 'D': 
-      {
-        for ;Steps != 0; Steps -= 1
-        {
-          Rope[0].y -= 1;
-          UpdateRope(Rope[:]);
-          Visited[Rope[KNOT_COUNT]] = true;
-        }
-      }
-      case 'L': 
-      {
-        for ;Steps != 0; Steps -= 1
-        {
-          Rope[0].x -= 1;
-          UpdateRope(Rope[:]);
-          Visited[Rope[KNOT_COUNT]] = true;
-        }
-      }
-      case 'R': 
-      {
-        for ;Steps != 0; Steps -= 1
-        {
-          Rope[0].x += 1;
-          UpdateRope(Rope[:]);
-          Visited[Rope[KNOT_COUNT]] = true;
-        }
-      }
+      UpdateRope(Rope[:]);
+      Visited[Rope[KNOT_COUNT]] = true;
     }
   }
   
